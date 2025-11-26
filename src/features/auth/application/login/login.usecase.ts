@@ -1,7 +1,7 @@
 import { AuthRepository } from "../../domain/login/AuthRepository";
 
 export function loginUseCase(repo: AuthRepository) {
-  return async (guide: string) => {
-    return await repo.login(guide);
+  return async (email: string, password: string) => {
+    return await repo.login(email, password);
   };
 }

@@ -10,6 +10,7 @@ import { GuideCardSkeleton } from '@/components/skeleton/GuideCardSkeleton';
 import { ThemedView } from '@/components/themed-view';
 import { GuideDetails } from '@/src/features/tracking/domain/details/DetailsGuide';
 import { detailsRepositoryImpl } from '@/src/features/tracking/infrastructure/details/detailsRepositoryImpl';
+import { decodeJWT } from '@/src/utils/jwt';
 import { getDeviceDateTime } from '@/src/utils/uitls';
 import * as Location from 'expo-location';
 import { useRouter } from 'expo-router';
@@ -48,11 +49,27 @@ export function DetailsForm({ initialGuide = "", token = "", onSubmit }: Details
 
     useEffect(() => {
         const fetchToken = async () => {
-            const savedToken = await SecureStore.getItemAsync('user_token');
+            const savedToken = await SecureStore.getItemAsync('AUTH_TOKEN');
             setToken(savedToken);
+            await SecureStore.setItemAsync('LAST_ACTIVITY_AT', String(Date.now()));
+
+            if (!savedToken) {
+                router.replace('/auth/login');
+                return;
+            }
+            const payload = decodeJWT(savedToken);
+            const nowSec = Math.floor(Date.now() / 1000);
+            const lastActivityStr = await SecureStore.getItemAsync('LAST_ACTIVITY_AT');
+            const lastActivityMs = lastActivityStr ? Number(lastActivityStr) : Date.now();
+            const threeHoursMs = 3 * 60 * 60 * 1000;
+            if (!payload || (payload.exp && nowSec >= payload.exp) || Date.now() - lastActivityMs > threeHoursMs) {
+                await SecureStore.deleteItemAsync('AUTH_TOKEN');
+                await SecureStore.setItemAsync('LAST_LOGOUT_AT', getDeviceDateTime());
+                router.replace('/auth/login');
+            }
         };
         fetchToken();
-    }, []);
+    }, [router]);
 
     useEffect(() => {
         const fetchData = async () => {

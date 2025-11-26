@@ -1,4 +1,7 @@
+import { AlertBanner } from '@/components/generals/AlertBanner';
+import { alertService } from '@/src/services/alerts/alert.service';
 import { Feather } from '@expo/vector-icons';
+import NetInfo from '@react-native-community/netinfo';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from "react";
@@ -17,7 +20,7 @@ import {
 
 const { width, height } = Dimensions.get('window');
 
-export function LoginForm({ onSubmit }: { onSubmit: (email: string, password: string) => void | Promise<void> }) {
+export function LoginForm({ onSubmit }: { onSubmit: (email: string, password: string) => Promise<any> }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -49,7 +52,44 @@ export function LoginForm({ onSubmit }: { onSubmit: (email: string, password: st
     setErrorMessage("");
     try {
       setIsLoading(true);
-      await onSubmit(email, password);
+      const net = await NetInfo.fetch();
+      if (!net.isConnected) {
+        alertService.show({
+          type: 'warning',
+          title: 'Fallo de red al intentar loguear',
+          message: 'Sin conexión a internet. Verifica tu red e inténtalo de nuevo.',
+        });
+        return;
+      }
+
+      const response = await onSubmit(email, password);
+      if (response?.statusCode === 200) {
+        return;
+      }
+      if (response?.statusCode === 423) {
+        alertService.show({
+          type: 'neutral',
+          title: 'Cuenta bloqueada / inactiva',
+          message: 'Tu cuenta está inactiva. Contacta al administrador.',
+        });
+        return;
+      }
+      if (response?.statusCode === 401 || response?.statusCode === 404) {
+        alertService.show({
+          type: 'error',
+          title: 'Credenciales incorrectas',
+          message: 'Usuario o contraseña incorrectos. Intenta nuevamente.',
+        });
+        return;
+      }
+      if (response?.statusCode === 400) {
+        alertService.show({
+          type: 'error',
+          title: 'Usuario incorrecto',
+          message: 'Usuario registrado no es una dirección de correo valida',
+        });
+        return;
+      }
     } catch (error: any) {
       setErrorMessage(error.message ?? "Error en la autenticación");
     } finally {
@@ -62,6 +102,7 @@ export function LoginForm({ onSubmit }: { onSubmit: (email: string, password: st
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
     >
+      <AlertBanner />
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
