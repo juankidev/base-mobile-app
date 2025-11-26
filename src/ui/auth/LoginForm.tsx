@@ -64,6 +64,7 @@ export function LoginForm({ onSubmit }: { onSubmit: (email: string, password: st
 
       const response = await onSubmit(email, password);
       if (response?.statusCode === 200) {
+        router.replace("../../routes");
         return;
       }
       if (response?.statusCode === 423) {

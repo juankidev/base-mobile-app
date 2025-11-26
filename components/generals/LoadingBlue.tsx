@@ -6,7 +6,7 @@ export function LoadingBlue() {
         <View style={styles.overlay}>
             <ActivityIndicator
                 size={50}        
-                color="#164194"
+                color="#F1F2F5"
                 style={{ transform: [{ scale: 1.5 }] }} 
             />
         </View>

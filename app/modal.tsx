@@ -22,7 +22,7 @@ export default function ModalScreen() {
       <View style={styles.backgroundFill} />
 
       <Image
-        source={require('@/assets/icons/Home.png')}
+        source={require('@/assets/icons/SplashScreen.jpg')}
         style={[styles.backgroundImage, { width: width , height: height}]}
         resizeMode="cover"
       />
@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
   },
   backgroundFill: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#164194',
+    backgroundColor: '#F1F2F5',
     zIndex: 0,
   },
   backgroundImage: {

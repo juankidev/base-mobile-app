@@ -8,7 +8,7 @@ export function AlertBanner() {
 
   useEffect(() => {
     const unsub = alertService.subscribe(setCurrent);
-    return () => unsub();
+    return () => { unsub(); };
   }, []);
 
   if (!current) return null;
@@ -80,4 +80,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-
