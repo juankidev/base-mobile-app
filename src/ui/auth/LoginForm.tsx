@@ -1,35 +1,31 @@
-import { PrimaryButton } from '@/components/buttons/PrimaryButton';
-import { LoadingBlue } from '@/components/generals/LoadingBlue';
-import { LogoText } from '@/components/generals/LogoText';
-import { NetworkStatus } from '@/components/generals/NetworkStatus';
-import { TokenExpiredModal } from '@/components/generals/TokenExpiredModal';
-import { PrimaryInput } from '@/components/inputs/PrimaryInput';
-import { ThemedView } from '@/components/themed-view';
-import { authRepositoryImpl } from '@/src/features/auth/infrastructure/login/authRepositoryImpl';
-import { decodeJWT } from '@/src/utils/jwt';
-import NetInfo from '@react-native-community/netinfo';
+import { Feather } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import * as SecureStore from 'expo-secure-store';
 import { useEffect, useState } from "react";
 import {
   Dimensions,
-  Image, Keyboard,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
   StyleSheet,
   Text,
+  TextInput,
+  TouchableOpacity,
   View
 } from "react-native";
 
 const { width, height } = Dimensions.get('window');
 
-export function LoginForm({ onSubmit }: { onSubmit: (guide: string) => void | Promise<void> }) {
-  const [guide, setGuide] = useState("");
+export function LoginForm({ onSubmit }: { onSubmit: (email: string, password: string) => void | Promise<void> }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [errorMessage, setErrorMessage] = useState("");
-  const [tokenData, setTokenData] = useState<any>(null);
-  const [tokenEncode, setTokeEncode] = useState<any>(null);
-  const [showModal, setShowModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const isValid = guide.length >= 5;
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -47,223 +43,259 @@ export function LoginForm({ onSubmit }: { onSubmit: (guide: string) => void | Pr
     };
   }, []);
 
-
-  useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        const token = await SecureStore.getItemAsync('user_token');
-        if (token) {
-          const data = decodeJWT(token);
-          setTokenData(data);
-          setTokeEncode(token);
-        }
-      } catch (error) {
-        console.error('Error al leer token:', error);
-      }
-    };
-
-    fetchToken();
-  }, []);
-
-
-  useEffect(() => {
-    const validateToken = async () => {
-      try {
-        // Primero verificamos conexión
-        const netState = await NetInfo.fetch();
-        if (netState.isConnected) {
-          // Si hay conexión, validamos token
-          if (tokenData?.empresa && tokenData?.numeroGuia) {
-            if (tokenData?.exp) {
-              const now = Math.floor(Date.now() / 1000);
-              const exp = tokenData.exp;
-
-              if (exp) {
-                if (now >= exp) {
-                  setShowModal(true);
-                } else {
-                  router.push({
-                    pathname: '/views/details',
-                    params: {
-                      guide: Number(tokenData?.numeroGuia),
-                      token: String(tokenEncode)
-                    }
-                  });
-                }
-              }
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Error al validar token:', error);
-      }
-    };
-
-    validateToken();
-  }, [tokenData, tokenEncode]);
+  const isButtonEnabled = email.length > 0 && password.length > 0;
 
   const handleSubmit = async () => {
     setErrorMessage("");
-
-    if (!isValid) {
-      setErrorMessage("El número de guía debe tener al menos 5 dígitos.");
-      return;
-    }
     try {
       setIsLoading(true);
-      const response = await authRepositoryImpl.login(guide);
-      if (response?.statusCode == 200) {
-        const tokenString = typeof response.data === 'string' ? response.data : JSON.stringify(response.data);
-        await SecureStore.deleteItemAsync('user_token');
-        await SecureStore.setItemAsync('user_token', tokenString);
-        // Tu response.data es un JWT token, no un objeto
-        router.push({
-          pathname: '/views/details',
-          params: {
-            guide: Number(guide),
-            token: String(response.data)
-          }
-
-        });
-      } else {
-        setErrorMessage(response?.message || "La guía no existe o es incorrecta.");
-      }
+      await onSubmit(email, password);
     } catch (error: any) {
-      setErrorMessage(error.response?.data?.message ?? "Error en la consulta de datos.");
+      setErrorMessage(error.message ?? "Error en la autenticación");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <TokenExpiredModal visible={showModal} onClose={() => setShowModal(false)} />
-
-      <NetworkStatus />
-
-      <View style={[styles.backgroundFill, { width, height }]} pointerEvents="none">
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Logo */}
         <Image
-          source={require('@/assets/icons/Welcome.png')}
-          style={[styles.backgroundImage, { width, height }]}
-          resizeMode="cover"
+          style={styles.logo}
+          source={require("@/assets/images/meilog-logo.png")}
+          contentFit="contain"
         />
-      </View>
 
-      {[...Array(4)].map((_, i) => (
-        <View key={i} style={[styles.separator, { top: (i + 1) * (height / 5) - 1 }]} />
-      ))}
-
-      <LogoText style={styles.logo} />
-
-      {/* Panel blanco con altura fija */}
-      <View style={[
-        styles.whitePanel,
-        { height: height - 200 }
-      ]}>
-        <View style={styles.content}>
-          <View style={styles.topContent}>
-            <Text style={styles.title}>¡Bienvenido!</Text>
-            <Text style={styles.subtitle}>
-              Ingresa el número de guía para comenzar tu ruta
-            </Text>
-
-            <PrimaryInput
-              placeholder="Número de guía"
-              value={guide}
-              onChangeText={(text) => {
-                setGuide(text);
-                setErrorMessage("");
-              }}
-              error={errorMessage !== ""}
-            />
-
-            {errorMessage !== "" && (
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            )}
+        {/* Form Section */}
+        <View style={styles.formSection}>
+          {/* Usuario Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Usuario</Text>
+            <View style={[
+              styles.inputContainer,
+              emailFocused && styles.inputFocused,
+              errorMessage && styles.inputError
+            ]}>
+              <Feather name="user" size={20} color="#003d82" style={styles.icon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu correo electrónico"
+                placeholderTextColor="#999"
+                value={email}
+                onChangeText={(text) => {
+                  setEmail(text);
+                  setErrorMessage("");
+                }}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
           </View>
 
-          <View style={[
-            styles.buttonContainer,
-            { marginBottom: keyboardHeight > 0 ? keyboardHeight + 40 : 20 }
-          ]}>
-            <PrimaryButton
-              title="Ingresar"
-              onPress={handleSubmit}
-              disabled={!isValid}
-              width={360}
-              height={50}
-            />
+          {/* Contraseña Input */}
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Contraseña</Text>
+            <View style={[
+              styles.inputContainer,
+              passwordFocused && styles.inputFocused,
+              errorMessage && styles.inputError
+            ]}>
+              <Feather name="lock" size={20} color="#003d82" style={styles.icon} />
+              <TextInput
+                style={styles.input}
+                placeholder="Ingresa tu contraseña"
+                placeholderTextColor="#999"
+                value={password}
+                onChangeText={(text) => {
+                  setPassword(text);
+                  setErrorMessage("");
+                }}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
+                secureTextEntry={!showPassword}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeIcon}
+              >
+                <Feather
+                  name={showPassword ? "eye" : "eye-off"}
+                  size={20}
+                  color="#003d82"
+                />
+              </TouchableOpacity>
+            </View>
           </View>
+
+          {/* Error Message */}
+          {errorMessage !== "" && (
+            <Text style={styles.errorText}>{errorMessage}</Text>
+          )}
+
+          {/* Forgot Password Link */}
+          <TouchableOpacity style={styles.forgotPassword}>
+            <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-      {isLoading && <LoadingBlue />}
-    </ThemedView>
+
+        {/* Spacer */}
+        <View style={styles.spacer} />
+
+        {/* Submit Button */}
+        <View style={[styles.buttonContainer, { marginBottom: keyboardHeight > 0 ? 20 : 40 }]}>
+          <TouchableOpacity
+            style={[
+              styles.submitButton,
+              !isButtonEnabled && styles.submitButtonDisabled
+            ]}
+            onPress={handleSubmit}
+            disabled={!isButtonEnabled || isLoading}
+            activeOpacity={0.8}
+          >
+            <Text style={[
+              styles.submitButtonText,
+              !isButtonEnabled && styles.submitButtonTextDisabled
+            ]}>
+              {isLoading ? "Cargando..." : "Ingresar"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Footer */}
+        <Text style={styles.footer}>Meico S.A.</Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    position: 'relative',
-    alignItems: 'center',
+    backgroundColor: '#f1f2f5',
   },
-  backgroundFill: {
-    backgroundColor: '#143881ff',
-  },
-  backgroundImage: {
-    zIndex: 1,
-  },
-  separator: {
-    position: 'absolute',
-    height: 5,
-    transform: [{ rotate: '-15deg' }],
-    zIndex: 2,
+  scrollContent: {
+    flexGrow: 1,
+    marginTop: 60,
+    paddingHorizontal: 20,
   },
   logo: {
-    zIndex: 10,
-    position: 'absolute',
-    top: 100,
+    flex: 2.5,
+    marginTop: 40,
+    marginBottom: 60,
+    width: '100%',
+    alignSelf: 'center'
   },
-  whitePanel: {
-    position: 'absolute',
-    top: 200,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 27,
-    zIndex: 3,
+  formSection: {
+    width: '100%',
   },
-  content: {
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  topContent: {
-    flex: 1,
-  },
-  title: {
-    fontFamily: "Rubik",
-    fontWeight: "700",
-    fontSize: 24,
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontFamily: "Rubik",
-    fontWeight: "400",
-    fontSize: 14,
-    textAlign: "center",
+  inputGroup: {
     marginBottom: 24,
   },
+  label: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#003d82',
+    marginBottom: 8,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 56,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  inputFocused: {
+    borderWidth: 2,
+    borderColor: '#003d82',
+    boxShadow: '0px 0px 12px 2px rgba(2, 73, 186, 0.48)',
+  },
+  inputError: {
+    borderColor: '#ff3b30',
+  },
+  icon: {
+    marginRight: 12,
+  },
+  input: {
+    flex: 1,
+    height: 100,
+    fontSize: 16,
+    color: '#333',
+  },
+  eyeIcon: {
+    padding: 4,
+  },
   errorText: {
-    color: "red",
-    fontSize: 12,
-    marginTop: 4,
-    textAlign: "center",
+    color: '#ff3b30',
+    fontSize: 14,
+    marginTop: -16,
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  forgotPassword: {
+    alignSelf: 'flex-start',
+    marginTop: -8,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#666',
+    textDecorationLine: 'underline',
+  },
+  spacer: {
+    flex: 1,
   },
   buttonContainer: {
-    width: "100%",
+    width: '100%',
     alignItems: 'center',
+  },
+  submitButton: {
+    width: '100%',
+    height: 56,
+    backgroundColor: '#003d82',
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#d0d0d0',
+  },
+  submitButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  submitButtonTextDisabled: {
+    color: '#999',
+  },
+  footer: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#666',
+    marginTop: 40,
+    marginBottom: 40,
+    fontWeight: '500',
   },
 });
