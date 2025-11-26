@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Meico-Track",
-    "slug": "Meico-Track",
+    "name": "Meilog",
+    "slug": "Meilog",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -20,7 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.efince.MeicoTrack"
+      "package": "com.meico.Meilog"
     },
     "web": {
       "output": "static",
