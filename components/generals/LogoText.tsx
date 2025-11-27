@@ -1,15 +1,8 @@
-import { ThemedText } from '@/components/themed-text';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 export const LogoText = ({ style }: { style?: any }) => (
     <View style={[styles.container, style]}>
-        <ThemedText type="title" style={styles.meico}>
-            Meico
-        </ThemedText>
-        <ThemedText type="title" style={styles.track}>
-            TRACK
-        </ThemedText>
     </View>
 );
 
