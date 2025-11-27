@@ -1,5 +1,8 @@
+import { ConnectionErrorState } from '@/components/generals/ConnectionErrorState';
+import { EmptyState } from '@/components/generals/EmptyState';
 import { listRoutesUseCase } from '@/src/features/routes/application/listRoutes.usecase';
 import { routesRepositoryImpl } from '@/src/features/routes/infrastructure/routesRepositoryImpl';
+import NetInfo from '@react-native-community/netinfo';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Image, RefreshControl, StyleSheet, Text, View } from 'react-native';
@@ -49,6 +52,7 @@ export function RoutesList() {
   const [routes, setRoutes] = useState<RouteItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [hasNetwork, setHasNetwork] = useState(true);
 
   const sorted = useMemo(() => {
     return [...routes].sort((a, b) => new Date(a.appointment).getTime() - new Date(b.appointment).getTime());
@@ -58,6 +62,12 @@ export function RoutesList() {
     setLoading(true);
     const controller = new AbortController();
     try {
+      const net = await NetInfo.fetch();
+      setHasNetwork(!!net.isConnected);
+      if (!net.isConnected) {
+        setRoutes([]);
+        return;
+      }
       const res = await listRoutes({ signal: controller.signal });
       const data = Array.isArray(res.data) ? res.data : [];
       setRoutes(data as RouteItem[]);
@@ -101,6 +111,10 @@ export function RoutesList() {
             <View key={i} style={styles.skeletonCard} />
           ))}
         </View>
+      ) : !hasNetwork ? (
+        <View style={styles.emptyContainer}>
+          <ConnectionErrorState onRetry={onRefresh} />
+        </View>
       ) : (
         <FlatList
           data={sorted}
@@ -108,7 +122,13 @@ export function RoutesList() {
           renderItem={({ item }) => <RouteCard item={item} />}
           contentContainerStyle={sorted.length === 0 ? styles.emptyContainer : styles.listContent}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-          ListEmptyComponent={<Text style={styles.emptyText}>No hay rutas por alistar en este momento</Text>}
+          ListEmptyComponent={
+            <EmptyState
+              icon={require('@/assets/icons/Box.png')}
+              title="No hay rutas por alistar en este momento."
+              subtitle="Cuando se asignen nuevas rutas, aparecerán aquí."
+            />
+          }
         />
       )}
     </View>
